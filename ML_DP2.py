@@ -53,7 +53,7 @@ def run_nn_experiment(C_values, activation, X_train, y_train, X_test, y_test):
     # perform grid search over the specified values of C
     best_score = -1
     for C in C_values:
-        nn = MLPClassifier(hidden_layer_sizes=(100,50), alpha=C, activation=activation, solver='adam', max_iter=1000, random_state=42)
+        nn = MLPClassifier(hidden_layer_sizes=(10,10), alpha=C, activation=activation, solver='adam', max_iter=1000, random_state=42)
         nn.fit(X_train, y_train.ravel())
         score = nn.score(X_test, y_test)
         if score > best_score:
