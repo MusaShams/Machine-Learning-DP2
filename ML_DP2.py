@@ -61,28 +61,9 @@ def run_nn_experiment(C_values, activation, X_train, y_train, X_test, y_test):
             best_nn = nn
     
     #print(f'Best C for neural network with {activation} activation: {best_nn.alpha:.3g}, best test accuracy: {best_score:.3f}\n')
-    return best_score 
+    return -best_score 
 
     
-    
-
-def run_nn_experiment(C_values, activation, X_train, y_train, X_test, y_test):
-    # convert C_values to a list if it's not already
-    if not isinstance(C_values, list):
-        C_values = [C_values]
-    
-    # perform grid search over the specified values of C
-    best_score = -1
-    for C in C_values:
-        nn = MLPClassifier(hidden_layer_sizes=(100,50), alpha=C, activation=activation, solver='adam', max_iter=1000, random_state=42)
-        nn.fit(X_train, y_train.ravel())
-        score = nn.score(X_test, y_test)
-        if score > best_score:
-            best_score = score
-            best_nn = nn
-    
-    #print(f'Best C for neural network with {activation} activation: {best_nn.alpha:.3g}, best test accuracy: {best_score:.3f}\n')
-    return best_score
     
 
 
