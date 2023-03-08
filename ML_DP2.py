@@ -178,7 +178,7 @@ def main():
     print('nn log score', nn_log * -1)
     
     cnn = run_cnn('relu', X_train, y_train, X_test, y_test)
-    print("cnn relu score', cnn)
+    print('cnn relu score', cnn)
     
 
 main()   
