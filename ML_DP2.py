@@ -10,6 +10,8 @@ import numpy as np
 from skopt import gp_minimize
 from skopt.space import Real
 from functools import partial
+import tensorflow as tf
+from tensorflow.keras import datasets, layers, models
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning)
 
@@ -64,7 +66,23 @@ def run_nn_experiment(C_values, activation, X_train, y_train, X_test, y_test):
     return -best_score 
 
     
+def run_cnn(activation, X_train, y_train, X_test, y_test):
+    cnn = models.Sequential()
+    cnn.add(layers.Conv1D(32, 3, activation=activation, input_shape=(19, 1)))
+    cnn.add(layers.MaxPooling1D(2))
+    cnn.add(layers.Conv1D(64, 3, activation=activation))
+    cnn.add(layers.MaxPooling1D(2))
+    cnn.add(layers.Conv1D(64, 3, activation=activation))
+    cnn.add(layers.Flatten())
+    cnn.add(layers.Dense(64, activation=activation))
+    cnn.add(layers.Dense(10))
+    cnn.compile(optimizer='adam',
+              loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
+              metrics=['accuracy'])
+    cnn.fit(X_train, y_train, epochs=10, validation_data=(X_test, y_test))
+    test_loss, test_acc = cnn.evaluate(X_test,  y_test, verbose=2)
     
+    return test_acc
 
 
 
@@ -158,6 +176,9 @@ def main():
     print('Best C for NN with logistic:', nn_logistic_C)
     nn_log= run_nn_experiment(nn_logistic_C, 'logistic', X_train, y_train, X_test, y_test)
     print('nn log score', nn_log * -1)
+    
+    cnn = run_cnn('relu', X_train, y_train, X_test, y_test)
+    print("cnn relu score', cnn)
     
 
 main()   
