@@ -79,8 +79,8 @@ def run_cnn(activation, X_train, y_train, X_test, y_test):
     cnn.compile(optimizer='adam',
               loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
               metrics=['accuracy'])
-    cnn.fit(X_train, y_train, epochs=10, validation_data=(X_test, y_test))
-    test_loss, test_acc = cnn.evaluate(X_test,  y_test, verbose=2)
+    cnn.fit(X_train, y_train, epochs=10, validation_data=(X_test, y_test), verbose=0)
+    test_loss, test_acc = cnn.evaluate(X_test,  y_test, verbose=0)
     
     return test_acc
 
