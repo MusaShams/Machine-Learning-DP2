@@ -1,6 +1,7 @@
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
 from sklearn import preprocessing
+from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay, precision_recall_fscore_support, accuracy_score
 import matplotlib.pyplot as plt
@@ -15,7 +16,7 @@ from sklearn.ensemble import AdaBoostClassifier
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import RandomForestClassifier
 from IPython.display import display, HTML
-
+from sklearn.decomposition import PCA
 
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning)
@@ -23,12 +24,11 @@ warnings.filterwarnings("ignore", category=UserWarning)
 
 
 
-
-def train_and_evaluate_model(model_type, C_values, X_train, y_train, X_test, y_test):
+def train_and_evaluate_model(model_type, C_values, X_train, y_train, X_test, y_test, n_jobs = -1):
     if model_type == 'svm':
-        clf = svm.SVC(C=C_values[0], kernel='linear')
+        clf = svm.LinearSVC(C=C_values[0], max_iter=10000)
     elif model_type == 'logistic regression':
-        clf = LogisticRegression(C=C_values[0], solver='lbfgs')
+        clf = LogisticRegression(C=C_values[0], solver= 'saga',  n_jobs=n_jobs)
     elif model_type == 'nn_relu':
         nn = MLPClassifier(hidden_layer_sizes=(10, 10), activation='relu', alpha=C_values[0], max_iter=1000)
         nn.fit(X_train, y_train.ravel())
@@ -111,7 +111,7 @@ def optimize_C_for_model(model_type, X_train, y_train, X_test, y_test):
     return best_C
 
 
-def adaboost(X_train, y_train, X_test, y_test, n_estimators=50, learning_rate=1.0):
+def adaboost(X_train, y_train, X_test, y_test, n_estimators=50,  learning_rate=1.0):
     clf = AdaBoostClassifier(n_estimators=n_estimators, learning_rate=learning_rate)
     clf.fit(X_train, y_train)
     y_pred_train = clf.predict(X_train)
@@ -120,8 +120,8 @@ def adaboost(X_train, y_train, X_test, y_test, n_estimators=50, learning_rate=1.
     test_accuracy = accuracy_score(y_test, y_pred_test)
     return clf, train_accuracy, test_accuracy
 
-def random_forest(X_train, y_train, X_test, y_test, n_estimators=100, max_depth=None, min_samples_split=2, random_state=None):
-    clf = RandomForestClassifier(n_estimators=n_estimators, max_depth=max_depth, min_samples_split=min_samples_split, random_state=random_state)
+def random_forest(X_train, y_train, X_test, y_test, n_jobs = -1, n_estimators=500, max_depth=None, min_samples_split=2, random_state=None):
+    clf = RandomForestClassifier(n_estimators=n_estimators, max_depth=max_depth, bootstrap = True, min_samples_split=min_samples_split, random_state=random_state, n_jobs=n_jobs)
     clf.fit(X_train, y_train)
     y_pred_train = clf.predict(X_train)
     y_pred_test = clf.predict(X_test)
@@ -132,9 +132,11 @@ def random_forest(X_train, y_train, X_test, y_test, n_estimators=100, max_depth=
 
 
 def main():
+    
+    ## Original Dataset
+    
+    '''
     df = pd.read_csv('clean_dataset.csv')
-
-
     one_hot1 = pd.get_dummies(df['Ethnicity'])
     one_hot2 = pd.get_dummies(df['Citizen'])
     
@@ -144,7 +146,11 @@ def main():
     
     y = df['Approved'].to_numpy()
     df.drop(['Approved'], axis=1, inplace=True)
+    X = df
+    '''
     
+    
+    ## Dataset with ~25,000 training instances
     '''
     df = pd.read_csv('Application_Data.csv')
     columns_to_encode = ['Job_Title', 'Housing_Type', 'Family_Status', 'Education_Type', 'Income_Type', 'Applicant_Gender']
@@ -157,42 +163,78 @@ def main():
     '''
     
     
-    X = df.to_numpy()
+    ## Dataset with ~9,000 training instances
+    df = pd.read_csv('clean_data_2.csv')
+    columns_to_encode = ['Occupation_type', 'Housing_type', 'Family_status', 'Education_type', 'Income_type', 'Gender']
+    data_one_hot = pd.get_dummies(df[columns_to_encode], drop_first = True)
+    df = pd.concat([df.drop(columns_to_encode, axis=1), data_one_hot], axis=1)
+    ## Assigning the target to y and dropping from the dataframe
+    y = df['Target'] 
+    df.drop(['Target', 'ID'], axis=1, inplace=True)    
+    X = df
+
+    
+    '''This block of code is used to see the importance of each feature'''
+    #rf = RandomForestClassifier(n_estimators = 100, n_jobs = -1)
+    #rf.fit(X,y)
+    #importances = rf.feature_importances_
+    #feature_names = X.columns    
+    #for feature, importance in zip(feature_names, importances):
+        #print(feature, ':', importance * 100 , "%")
+    
+
+    X = X.to_numpy()
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.20, random_state=42)
-      
-    X_train = preprocessing.scale(X_train)
-    X_test = preprocessing.scale(X_test)
+    
+    scaler = StandardScaler().fit(X_train)
+    
+    X_train = scaler.transform(X_train)
+    X_test = scaler.transform(X_test)
+    
+    
+    
+    pca = PCA()
+    pca.fit(X_train)
+    plt.plot(np.cumsum(pca.explained_variance_ratio_))
+    plt.xlabel('Number of Components')
+    plt.ylabel('Cumulative Explained Variance')
+    plt.show()
+    
+    '''Using PCA to transform the Data'''
+    #pca = PCA(n_components=0.95)  # Retain 95% of the variance in the dataset
+    #X_train = pca.fit_transform(X_train)
+    #X_test = pca.transform(X_test)
     
  
     #Support Vector Machines
     svm_C = optimize_C_for_model('svm', X_train, y_train, X_test, y_test)
     print('Best C for SVM:', svm_C)
     svm_score = train_and_evaluate_model('svm', [svm_C], X_train, y_train, X_test, y_test)
-    print('SVM Score', svm_score * -1,'\n')
+    print('SVM Score', round(svm_score * -1, 6),'\n')
     
     # Logistic Regression  
     lr_C = optimize_C_for_model('logistic regression', X_train, y_train, X_test, y_test)
     print('Best C for Logistic Regression:' , lr_C) 
     lg_score= train_and_evaluate_model('logistic regression', [lr_C], X_train, y_train, X_test, y_test)
-    print('lg_score', lg_score * -1,'\n')
+    print('lg_score', round(lg_score * -1,6),'\n')
     
     # Neural Network ReLU activation function  
     nn_relu_C = optimize_C_for_model('nn_relu', X_train, y_train, X_test, y_test)
     print('Best C for NN with ReLU:', nn_relu_C)
     nn_relu = run_nn_experiment(nn_relu_C, 'relu', X_train, y_train, X_test, y_test)
-    print('nn relu score', nn_relu * -1,'\n')
+    print('nn relu score', round(nn_relu * -1, 6),'\n')
     
     # Neural Network tanh activation function 
     nn_tanh_C = optimize_C_for_model('nn_tanh', X_train, y_train, X_test, y_test)
     print('Best C for NN with tanh:', nn_tanh_C)
     nn_tanh = run_nn_experiment(nn_tanh_C, 'tanh', X_train, y_train, X_test, y_test)
-    print('nn tanh score', nn_tanh * -1,'\n')
+    print('nn tanh score', round(nn_tanh * -1, 6),'\n')
     
     # Neural Network logistic activation function 
     nn_logistic_C = optimize_C_for_model('nn_logistic', X_train, y_train, X_test, y_test)
     print('Best C for NN with logistic:', nn_logistic_C)
     nn_log= run_nn_experiment(nn_logistic_C, 'logistic', X_train, y_train, X_test, y_test)
-    print('nn log score', nn_log * -1,'\n')
+    print('nn log score', round(nn_log * -1, 6),'\n')
     
     
     #Adaboost Decision Tree base estimator
@@ -200,12 +242,12 @@ def main():
     adaboost_score = test_accuracy
     print(f"AdaBoost n_estimators: {50} ")
     print(f"AdaBoost learning Rate: {1.0}")
-    print(f"AdaBoost score: {adaboost_score:.2f}\n")
+    print(f"AdaBoost score: {adaboost_score:.6f}\n")
     
     clf, train_accuracy, test_accuracy = random_forest(X_train, y_train, X_test, y_test, n_estimators = 100)
     random_forest_score = test_accuracy
-    print(f"Random Forest n_estimators: {100}")
-    print(f"Random Forest score: {random_forest_score:.2f}")
+    print(f"Random Forest n_estimators: {500}")
+    print(f"Random Forest score: {random_forest_score:.6f}")
 
 
     
