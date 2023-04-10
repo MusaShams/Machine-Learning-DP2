@@ -13,10 +13,7 @@ from functools import partial
 import os
 from sklearn.ensemble import AdaBoostClassifier
 from sklearn.tree import DecisionTreeClassifier
-
-
-
-
+from sklearn.ensemble import RandomForestClassifier
 
 
 import warnings
@@ -42,12 +39,7 @@ def train_and_evaluate_model(model_type, C_values, X_train, y_train, X_test, y_t
     elif model_type == 'nn_logistic':
         nn = MLPClassifier(hidden_layer_sizes=(10, 10), activation='logistic', alpha=C_values[0], max_iter=1000)
         nn.fit(X_train, y_train.ravel())
-        clf = nn
-    elif model_type == 'adaboost':
-        base_classifier = DecisionTreeClassifier(max_depth = 1)
-        clf = AdaBoostClassifier(estimator=base_classifier, n_estimators=int(C_values[0]), random_state = 42)
-        
-        
+        clf = nn      
     else:
         raise ValueError(f'Unknown model type: {model_type}')
 
@@ -100,24 +92,7 @@ def optimize_C_for_model(model_type, X_train, y_train, X_test, y_test):
     elif model_type == 'nn_logistic':
         C_space = Real(1e-7, 1000, prior='log-uniform')
         objective_fn = partial(run_nn_experiment, activation='logistic', X_train=X_train, y_train=y_train, X_test=X_test, y_test=y_test)
-    elif model_type == 'adaboost':
-        n_estimators_space = Integer(10, 200)
-        learning_rate_space = Real(0.01, 2, prior = 'log-uniform')
-        objective_fn = partial(train_and_evaluate_model, model_type, X_train= X_train, y_train = y_train, X_test = X_test, y_test = y_test )
-        try:
-            result = gp_minimize(objective_fn, [n_estimators_space, learning_rate_space], n_calls=20, random_state=42)
-            best_n_estimators = result.x[0]
-            best_learning_rate = result.x[1]
-            best_score = -result.fun
-        except:
-            print(f'Error occurred during optimization for {model_type}')
-            
-        if best_n_estimators is not None and best_learning_rate is not None:
-            test_score = train_and_evaluate_model(model_type, [best_n_estimators, best_learning_rate], X_train, y_train, X_test, y_test)
-
-        return best_n_estimators, best_learning_rate, test_score
-    
-    
+      
     else:
         raise ValueError(f'Unknown model type: {model_type}')
 
@@ -125,7 +100,7 @@ def optimize_C_for_model(model_type, X_train, y_train, X_test, y_test):
         result = gp_minimize(objective_fn, [C_space], n_calls=20, random_state=42)
         best_C = result.x[0]
         best_score = -result.fun
-        #print(f'Best C for {model_type}: {best_C:.3g}, best test accuracy: {best_score:.3f}\n')
+
     except:
         print(f'Error occurred during optimization for {model_type}')
     
@@ -135,6 +110,23 @@ def optimize_C_for_model(model_type, X_train, y_train, X_test, y_test):
     return best_C
 
 
+def adaboost(X_train, y_train, X_test, y_test, n_estimators=50, learning_rate=1.0):
+    clf = AdaBoostClassifier(n_estimators=n_estimators, learning_rate=learning_rate)
+    clf.fit(X_train, y_train)
+    y_pred_train = clf.predict(X_train)
+    y_pred_test = clf.predict(X_test)
+    train_accuracy = accuracy_score(y_train, y_pred_train)
+    test_accuracy = accuracy_score(y_test, y_pred_test)
+    return clf, train_accuracy, test_accuracy
+
+def random_forest(X_train, y_train, X_test, y_test, n_estimators=100, max_depth=None, min_samples_split=2, random_state=None):
+    clf = RandomForestClassifier(n_estimators=n_estimators, max_depth=max_depth, min_samples_split=min_samples_split, random_state=random_state)
+    clf.fit(X_train, y_train)
+    y_pred_train = clf.predict(X_train)
+    y_pred_test = clf.predict(X_test)
+    train_accuracy = accuracy_score(y_train, y_pred_train)
+    test_accuracy = accuracy_score(y_test, y_pred_test)
+    return clf, train_accuracy, test_accuracy
 
 
 
@@ -154,57 +146,65 @@ def main():
     X = df.to_numpy()
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.20, random_state=42)
     
+    
     X_train = preprocessing.scale(X_train)
     X_test = preprocessing.scale(X_test)
 
  
-    
+    #Support Vector Machines
     svm_C = optimize_C_for_model('svm', X_train, y_train, X_test, y_test)
     print('Best C for SVM:', svm_C)
-    
-    
-    # Support Vector Machines
     svm_score = train_and_evaluate_model('svm', [svm_C], X_train, y_train, X_test, y_test)
     print('SVM Score', svm_score * -1,'\n')
     
+    # Logistic Regression  
     lr_C = optimize_C_for_model('logistic regression', X_train, y_train, X_test, y_test)
-    print('Best C for Logistic Regression:' , lr_C)
-    # Logistic Regression   
+    print('Best C for Logistic Regression:' , lr_C) 
     lg_score= train_and_evaluate_model('logistic regression', [lr_C], X_train, y_train, X_test, y_test)
     print('lg_score', lg_score * -1,'\n')
     
-    ##Neural Networks   
+    # Neural Network ReLU activation function  
     nn_relu_C = optimize_C_for_model('nn_relu', X_train, y_train, X_test, y_test)
-    
     print('Best C for NN with ReLU:', nn_relu_C)
     nn_relu = run_nn_experiment(nn_relu_C, 'relu', X_train, y_train, X_test, y_test)
     print('nn relu score', nn_relu * -1,'\n')
     
+    # Neural Network tanh activation function 
     nn_tanh_C = optimize_C_for_model('nn_tanh', X_train, y_train, X_test, y_test)
     print('Best C for NN with tanh:', nn_tanh_C)
     nn_tanh = run_nn_experiment(nn_tanh_C, 'tanh', X_train, y_train, X_test, y_test)
     print('nn tanh score', nn_tanh * -1,'\n')
     
+    # Neural Network logistic activation function 
     nn_logistic_C = optimize_C_for_model('nn_logistic', X_train, y_train, X_test, y_test)
     print('Best C for NN with logistic:', nn_logistic_C)
     nn_log= run_nn_experiment(nn_logistic_C, 'logistic', X_train, y_train, X_test, y_test)
     print('nn log score', nn_log * -1,'\n')
     
     
-    best_n_estimators, best_learning_rate, adaboost_score = optimize_C_for_model('adaboost', X_train, y_train, X_test, y_test)
-    print(f'Best number of estimators for AdaBoost: {best_n_estimators}')
-    print(f'Best learning rate for AdaBoost: {best_learning_rate}')
-    print(f'AdaBoost Score: {adaboost_score * -1}\n')
+    #Adaboost Decision Tree base estimator
+    clf, train_accuracy, test_accuracy = adaboost(X_train, y_train, X_test, y_test,  n_estimators=50, learning_rate=1.0)
+    adaboost_score = test_accuracy
+    print(f"AdaBoost n_estimators: {50} ")
+    print(f"AdaBoost learning Rate: {1.0}")
+    print(f"AdaBoost score: {adaboost_score:.2f}\n")
     
+    clf, train_accuracy, test_accuracy = random_forest(X_train, y_train, X_test, y_test, n_estimators = 100)
+    random_forest_score = test_accuracy
+    print(f"Random Forest n_estimators: {100}")
+    print(f"Random Forest score: {random_forest_score:.2f}")
+
+
     
-    model_names = ['SVM', 'Log Regression', 'NN ReLU', 'NN Tanh', 'NN Logistic', 'AdaBoost']
+    model_names = ['SVM', 'Log Regression', 'NN ReLU', 'NN Tanh', 'NN Logistic', 'AdaBoost', 'Random Forest']
     model_scores = [
     svm_score * -1,
     lg_score * -1,
     nn_relu * -1,
     nn_tanh * -1,
     nn_log * -1,
-    adaboost_score * -1
+    adaboost_score ,
+    random_forest_score
     ]   
 
     plt.plot(model_names, model_scores, marker='o')
