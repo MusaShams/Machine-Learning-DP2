@@ -57,9 +57,9 @@ def run_nn_experiment(C_values, activation, X_train, y_train, X_test, y_test):
     # convert C_values to a list if it's not already
     if not isinstance(C_values, list):
         C_values = [C_values]
-    
-    # perform grid search over the specified values of C
+        
     best_score = -1
+    ## Finds best C value
     for C in C_values:
         nn = MLPClassifier(hidden_layer_sizes=(10,10), alpha=C, activation=activation, solver='adam', max_iter=1000, random_state=42)
         nn.fit(X_train, y_train.ravel())
