@@ -17,6 +17,7 @@ from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import RandomForestClassifier
 from IPython.display import display, HTML
 from sklearn.decomposition import PCA
+from ctgan import CTGAN
 
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning)
@@ -129,49 +130,77 @@ def random_forest(X_train, y_train, X_test, y_test, n_jobs = -1, n_estimators=50
     test_accuracy = accuracy_score(y_test, y_pred_test)
     return clf, train_accuracy, test_accuracy
 
+def generate_synthetic_data_gan(df, epochs = 200, threshold = 0.5):
+    synthesizer = CTGAN(epochs = epochs)
+    synthesizer.fit(df)
+    synthetic_data = synthesizer.sample(len(df))
+    target_col = 'Target'
+    
+    synthetic_target_values = synthetic_data[target_col].values
+    binary_target_values = (synthetic_target_values > threshold).astype(int)
+    synthetic_data[target_col] = binary_target_values
+    
+    return synthetic_data
+
+def plot_histograms(original_data, synthetic_data, feature):
+    fig, ax = plt.subplots(figsize=(12, 4))
+    
+    ax.hist(original_data[feature], bins=20, color='blue', alpha=0.7, label='Original Data')
+    ax.hist(synthetic_data[feature], bins=20, color='orange', alpha=0.7, label='Synthetic Data')
+    
+    ax.set_title(f'Original vs. Synthetic Data: {feature}')
+    ax.set_xlabel(feature)
+    ax.set_ylabel('Frequency')
+    ax.legend()
+    
+    plt.show()
+    
+    
 
 
 def main():
     
-    ## Original Dataset
+
     
-    '''
-    df = pd.read_csv('clean_dataset.csv')
-    one_hot1 = pd.get_dummies(df['Ethnicity'])
-    one_hot2 = pd.get_dummies(df['Citizen'])
-    
-    df.drop(['Ethnicity', 'Industry', 'ZipCode', 'Citizen'], axis=1, inplace=True)
-    df = df.join(one_hot1)
-    df = df.join(one_hot2)
-    
-    y = df['Approved'].to_numpy()
-    df.drop(['Approved'], axis=1, inplace=True)
-    X = df
-    '''
-    
-    
-    ## Dataset with ~25,000 training instances
-    '''
-    df = pd.read_csv('Application_Data.csv')
-    columns_to_encode = ['Job_Title', 'Housing_Type', 'Family_Status', 'Education_Type', 'Income_Type', 'Applicant_Gender']
-    data_one_hot = pd.get_dummies(df[columns_to_encode])
-    df = pd.concat([df.drop(columns_to_encode, axis=1), data_one_hot], axis=1)
-    
-    ## Assigning the target to y and dropping from the dataframe
-    y = df['Status'] 
-    df.drop(['Status'], axis=1, inplace=True)
-    '''
-    
-    
-    ## Dataset with ~9,000 training instances
+    ## Dataset with ~9,000 training instances and an additional ~9,000 from GANs. Total training instances are 19418
     df = pd.read_csv('clean_data_2.csv')
     columns_to_encode = ['Occupation_type', 'Housing_type', 'Family_status', 'Education_type', 'Income_type', 'Gender']
     data_one_hot = pd.get_dummies(df[columns_to_encode], drop_first = True)
     df = pd.concat([df.drop(columns_to_encode, axis=1), data_one_hot], axis=1)
+    
+    numerical_columns = df.select_dtypes(include=[np.number]).columns
+    df[numerical_columns] = df[numerical_columns].astype('float32')
+    
+    
+    
+    ## REMOVE COMMENTS TO APPLY GANs (CREATES ADDITIONAL TRAINING INSTANCES)
+    '''
+    synthetic_df = generate_synthetic_data_gan(df) 
+    y_synthetic = synthetic_df['Target'] 
+    synthetic_df = synthetic_df.drop(['Target', 'ID'], axis=1) 
+    X_synthetic = synthetic_df
+    '''
+    
+    
     ## Assigning the target to y and dropping from the dataframe
     y = df['Target'] 
-    df.drop(['Target', 'ID'], axis=1, inplace=True)    
+    df = df.drop(['Target', 'ID'], axis=1)     
     X = df
+  
+    
+    ## REMOVE COMMENTS TO APPLY GANs (CREATES PLOTS SHOWING A COMPARISON BETWEEN ORIGINAL DATA AND SYNTHETIC DATA)
+    '''
+    numeric_features = df.select_dtypes(include=[np.number]).columns.tolist()
+    for feature in numeric_features:
+        plot_histograms(df, synthetic_df, feature)
+        
+    '''
+    ## REMOVE COMMENTS TO APPLY GANs (CONCATs ORIGNAL DATA AND SNYTHETIC DATA)
+    '''
+    X = pd.concat([X, X_synthetic])
+    y = pd.concat([y, y_synthetic])
+    '''
+    
 
     
     '''This block of code is used to see the importance of each feature'''
