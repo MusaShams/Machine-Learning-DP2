@@ -24,7 +24,7 @@ warnings.filterwarnings("ignore", category=UserWarning)
 
 
 
-
+# Function to train and evaluate the model
 def train_and_evaluate_model(model_type, C_values, X_train, y_train, X_test, y_test, n_jobs = -1):
     if model_type == 'svm':
         clf = svm.LinearSVC(C=C_values[0], max_iter=10000)
@@ -52,7 +52,7 @@ def train_and_evaluate_model(model_type, C_values, X_train, y_train, X_test, y_t
 
     
 
-
+# Function to run neural network experiment
 def run_nn_experiment(C_values, activation, X_train, y_train, X_test, y_test):
     # convert C_values to a list if it's not already
     if not isinstance(C_values, list):
@@ -73,7 +73,7 @@ def run_nn_experiment(C_values, activation, X_train, y_train, X_test, y_test):
 
 
 
-
+# Function to optimize C for a given model
 def optimize_C_for_model(model_type, X_train, y_train, X_test, y_test):
     C_values = [1e-7, 1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 1, 10, 100]
     C_values_with_extra = C_values + [1000]
@@ -111,7 +111,7 @@ def optimize_C_for_model(model_type, X_train, y_train, X_test, y_test):
     
     return best_C
 
-
+# Function for AdaBoost Classifier
 def adaboost(X_train, y_train, X_test, y_test, n_estimators=50,  learning_rate=1.0):
     clf = AdaBoostClassifier(n_estimators=n_estimators, learning_rate=learning_rate)
     clf.fit(X_train, y_train)
@@ -121,6 +121,7 @@ def adaboost(X_train, y_train, X_test, y_test, n_estimators=50,  learning_rate=1
     test_accuracy = accuracy_score(y_test, y_pred_test)
     return clf, train_accuracy, test_accuracy
 
+# Function for Random Forest Classifier
 def random_forest(X_train, y_train, X_test, y_test, n_jobs = -1, n_estimators=500, max_depth=None, min_samples_split=2, random_state=None):
     clf = RandomForestClassifier(n_estimators=n_estimators, max_depth=max_depth, bootstrap = True, min_samples_split=min_samples_split, random_state=random_state, n_jobs=n_jobs)
     clf.fit(X_train, y_train)
@@ -130,6 +131,7 @@ def random_forest(X_train, y_train, X_test, y_test, n_jobs = -1, n_estimators=50
     test_accuracy = accuracy_score(y_test, y_pred_test)
     return clf, train_accuracy, test_accuracy
 
+# Function to generate synthetic data using GANs
 def generate_synthetic_data_gan(df, epochs = 200, threshold = 0.5):
     synthesizer = CTGAN(epochs = epochs)
     synthesizer.fit(df)
@@ -142,12 +144,11 @@ def generate_synthetic_data_gan(df, epochs = 200, threshold = 0.5):
     
     return synthetic_data
 
+# Function to plot histograms
 def plot_histograms(original_data, synthetic_data, feature):
-    fig, ax = plt.subplots(figsize=(12, 4))
-    
+    fig, ax = plt.subplots(figsize=(12, 4))  
     ax.hist(original_data[feature], bins=20, color='blue', alpha=0.7, label='Original Data')
-    ax.hist(synthetic_data[feature], bins=20, color='orange', alpha=0.7, label='Synthetic Data')
-    
+    ax.hist(synthetic_data[feature], bins=20, color='orange', alpha=0.7, label='Synthetic Data')    
     ax.set_title(f'Original vs. Synthetic Data: {feature}')
     ax.set_xlabel(feature)
     ax.set_ylabel('Frequency')
@@ -157,17 +158,16 @@ def plot_histograms(original_data, synthetic_data, feature):
     
     
 
-
+# Main function to preprocess the dataset, optimize hyperparameters, train, and evaluate various models
 def main():
-    
-
     
     ## Dataset with ~9,000 training instances and an additional ~9,000 from GANs. Total training instances are 19418
     df = pd.read_csv('clean_data_2.csv')
     columns_to_encode = ['Occupation_type', 'Housing_type', 'Family_status', 'Education_type', 'Income_type', 'Gender']
     data_one_hot = pd.get_dummies(df[columns_to_encode], drop_first = True)
     df = pd.concat([df.drop(columns_to_encode, axis=1), data_one_hot], axis=1)
-    
+   
+    ## Changes Datatypes to 'float32' to properly run GANs
     numerical_columns = df.select_dtypes(include=[np.number]).columns
     df[numerical_columns] = df[numerical_columns].astype('float32')
     
