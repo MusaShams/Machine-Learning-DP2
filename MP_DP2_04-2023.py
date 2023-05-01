@@ -273,7 +273,7 @@ def main():
     print(f"AdaBoost learning Rate: {1.0}")
     print(f"AdaBoost score: {adaboost_score:.6f}\n")
     
-    clf, train_accuracy, test_accuracy = random_forest(X_train, y_train, X_test, y_test, n_estimators = 500)
+    clf, train_accuracy, test_accuracy = random_forest(X_train, y_train, X_test, y_test, n_estimators = 100)
     random_forest_score = test_accuracy
     print(f"Random Forest n_estimators: {500}")
     print(f"Random Forest score: {random_forest_score:.6f}")
