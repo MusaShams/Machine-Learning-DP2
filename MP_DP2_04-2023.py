@@ -22,6 +22,8 @@ from ctgan import CTGAN
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning)
 
+import tensorflow as tf
+from tensorflow.keras import datasets, layers, models
 
 
 # Function to train and evaluate the model
@@ -71,7 +73,31 @@ def run_nn_experiment(C_values, activation, X_train, y_train, X_test, y_test):
     #print(f'Best C for neural network with {activation} activation: {best_nn.alpha:.3g}, best test accuracy: {best_score:.3f}\n')
     return -best_score 
 
-
+def run_cnn(activation, X_train, y_train, X_test, y_test):
+    X_train = X_train.reshape(X_train.shape[0], X_train.shape[1],1)
+    X_test=X_test.reshape(X_test.shape[0], X_test.shape[1],1)
+    cnn = models.Sequential()
+    cnn.add(layers.Conv1D(32, 3, activation=activation, input_shape=X_train[0].shape))
+    cnn.add(layers.MaxPooling1D(2))
+    cnn.add(layers.Conv1D(64, 3, activation=activation))
+    cnn.add(layers.MaxPooling1D(2))
+    cnn.add(layers.Conv1D(64, 3, activation=activation))
+    cnn.add(layers.Flatten())
+    cnn.add(layers.Dense(64, activation=activation))
+    cnn.add(layers.Dense(10))
+    cnn.compile(optimizer='adam',
+              loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
+              metrics=['accuracy'])
+    history = cnn.fit(X_train, y_train, epochs=10, validation_data=(X_test, y_test), verbose=0)
+    plt.plot(history.history['accuracy'], label='accuracy')
+    plt.plot(history.history['val_accuracy'], label = 'val_accuracy')
+    plt.xlabel('Epoch')
+    plt.ylabel('Accuracy')
+    plt.ylim([0.5, 1])
+    plt.legend(loc='lower right')
+    
+    test_loss, test_acc = cnn.evaluate(X_test,  y_test, verbose=0)
+    print(test_acc)
 
 # Function to optimize C for a given model
 def optimize_C_for_model(model_type, X_train, y_train, X_test, y_test):
@@ -265,6 +291,14 @@ def main():
     nn_log= run_nn_experiment(nn_logistic_C, 'logistic', X_train, y_train, X_test, y_test)
     print('nn log score', round(nn_log * -1, 6),'\n')
     
+    # CNN ReLU activation function
+    run_cnn("relu", X_train, y_train, X_test, y_test)
+    
+    # CNN tanh activation function
+    run_cnn("tanh", X_train, y_train, X_test, y_test)
+    
+    # CNN logistic activation function
+    run_cnn("sigmoid", X_train, y_train, X_test, y_test)
     
     #Adaboost Decision Tree base estimator
     clf, train_accuracy, test_accuracy = adaboost(X_train, y_train, X_test, y_test,  n_estimators=50, learning_rate=1.0)
